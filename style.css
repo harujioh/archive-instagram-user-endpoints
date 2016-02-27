@@ -1,0 +1,42 @@
+#archive-instagram .paging {
+	text-align: center;
+}
+
+#archive-instagram .paging li {
+	display: inline-block;
+	margin: 0 5px;
+}
+
+#archive-instagram .paging li.now {
+	font-weight: bold;
+}
+
+#archive-instagram .photo li {
+	display: inline-block;
+	position: relative;
+	border: 1px solid #888;
+	width: 200px;
+	height: 200px;
+	margin: 10px;
+	cursor: pointer;
+}
+
+#archive-instagram .photo li:after {
+	position: absolute;
+	left: 0;
+	top: 0;
+	content: "";
+	width: 200px;
+	height: 200px;
+	background: none;
+	transition: 0.3s;
+}
+
+#archive-instagram .photo li.disabled:after {
+	background: rgba(0, 0, 0, 0.6);
+}
+
+#archive-instagram .photo img {
+	width: 200px;
+	height: 200px;
+}
