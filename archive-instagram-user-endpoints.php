@@ -3,7 +3,7 @@
 Plugin Name: Archive Instagram User Endpoints
 Description: Instagramの投稿をユーザ別に取得してDBに格納するプラグイン
 Author: harujioh
-Version: 1.0
+Version: 1.1
 */
 
 define('INSTAGRAM_USER_ENDPOINTS_API_URI'			, 'https://api.instagram.com/v1/users/%s/media/recent');
@@ -26,7 +26,7 @@ class ArchiveInstagramUserEndpoints {
 		$this->menuName		= 'Instagram by User';
 		$this->pageTitle	= '"Archive Instagram User Endpoints" Settings';
 		$this->pageName		= 'instagram-by-user';
-		$this->version 		= '1.0';
+		$this->version 		= '1.1';
 
 		$name = 'archive_instagram_user_endpoints';
 		$this->tableName	= $wpdb->prefix . $name;
@@ -259,7 +259,7 @@ class ArchiveInstagramUserEndpoints {
 		$response = wp_remote_get(isset($url) ? $url : sprintf(INSTAGRAM_USER_ENDPOINTS_API_URI, $param['user']) . '?' . $data);
 		$json = json_decode($response['body']);
 		
-		$minTagId = -1;
+		$minId = null;
 		$insertDatas = array();
 		if(isset($json->data)){
 			foreach($json->data as $data){
@@ -275,14 +275,14 @@ class ArchiveInstagramUserEndpoints {
 					'instagram_image' => $data->images->standard_resolution->url,
 					'instagram_created_time' => $data->caption->created_time
 				);
-				if($minTagId < 0){
-					$minTagId = (int)($data->caption->id);
+				if(!isset($minId)){
+					$minId = $data->id;
 				}
 			}
 		}
 
-		if($n == 0 && $minTagId >= 0){
-			update_option($this->optName, array_merge(get_option($this->optName), array('min_id' => $minTagId)));
+		if($n == 0 && isset($minId)){
+			update_option($this->optName, array_merge(get_option($this->optName), array('min_id' => $minId)));
 		}
 		if(isset($json->pagination->next_url) && $n + 1 < INSTAGRAM_USER_ENDPOINTS_API_MAX_PAGENATION){
 			return array_merge($insertDatas, $this->get_instagram($param, $json->pagination->next_url, $n + 1));
