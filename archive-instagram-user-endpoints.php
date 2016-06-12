@@ -3,11 +3,11 @@
 Plugin Name: Archive Instagram User Endpoints
 Description: Instagramの投稿をユーザ別に取得してDBに格納するプラグイン
 Author: harujioh
-Version: 1.1
+Version: 2.0.0
 */
 
-define('INSTAGRAM_USER_ENDPOINTS_API_URI'			, 'https://api.instagram.com/v1/users/%s/media/recent');
-define('INSTAGRAM_USER_ENDPOINTS_API_COUNT'			, 10);
+define('INSTAGRAM_USER_ENDPOINTS_API_URI'			, 'https://api.instagram.com/v1/users/self/media/recent');
+define('INSTAGRAM_USER_ENDPOINTS_API_COUNT'			, 20);
 define('INSTAGRAM_USER_ENDPOINTS_API_MAX_PAGENATION', 3);
  
 class ArchiveInstagramUserEndpoints {
@@ -26,7 +26,7 @@ class ArchiveInstagramUserEndpoints {
 		$this->menuName		= 'Instagram by User';
 		$this->pageTitle	= '"Archive Instagram User Endpoints" Settings';
 		$this->pageName		= 'instagram-by-user';
-		$this->version 		= '1.1';
+		$this->version 		= '2.0.0';
 
 		$name = 'archive_instagram_user_endpoints';
 		$this->tableName	= $wpdb->prefix . $name;
@@ -71,7 +71,7 @@ class ArchiveInstagramUserEndpoints {
 						`instagram_link` varchar(128) DEFAULT NULL,
 						`instagram_username` varchar(64) DEFAULT NULL,
 						`instagram_profile_picture` varchar(256) DEFAULT NULL,
-						`instagram_text` varchar(512) DEFAULT NULL,
+						`instagram_text` text COLLATE utf8_unicode_ci,
 						`instagram_image` varchar(256) DEFAULT NULL,
 						`instagram_created_time` int(11) NOT NULL DEFAULT '0',
 						`instagram_disabled` tinyint(11) NOT NULL DEFAULT '0',
@@ -134,24 +134,25 @@ class ArchiveInstagramUserEndpoints {
 <?php
 		}
 ?>
-	<div class="wrap">
+	<div id="archive-instagram-param" class="wrap">
 		<h1><?=$this->pageTitle?></h1>
-		<form method="post">
+		<form method="post" action="options-general.php?page=<?=$this->pageName?>">
 <?php
 			wp_nonce_field('option_hash');
 			$opt = get_option($this->optName);
 
 			$clientId = isset($opt['client_id']) ? $opt['client_id']: null;
+			$accessToken = isset($opt['access_token']) ? $opt['access_token'] : null;
 			$user = isset($opt['user']) ? $opt['user']: null;
 ?>
 			<table>
 				<tr>
 					<th>API client_id&nbsp;:</th>
-					<td><input type="text" class="regular-text" name="options[client_id]" value="<?=$clientId?>" placeholder="API client_id"></td>
+					<td><input type="text" id="client_id" class="full-text" name="options[client_id]" value="<?=$clientId?>" placeholder="API client_id"></td>
 				</tr>
 				<tr>
-					<th>user&nbsp;:</th>
-					<td><input type="text" class="regular-text" name="options[user]" value="<?=$user?>" placeholder="user"></td>
+					<th>OAuth&nbsp;:</th>
+					<td><input type="text" id="access_token" name="options[access_token]" value="<?=$accessToken?>" placeholder="access_token"><button id="oauth-button" class="button-primary">Authentication</button></td>
 				</tr>
 				<tr>
 					<th colspan="2"><input type="submit" class="button-primary" value="save"></td>
@@ -161,7 +162,7 @@ class ArchiveInstagramUserEndpoints {
 	</div>
 
 <?
-		$page = is_numeric($tmp = $_GET['paging']) && $tmp > 0 ? (int)$tmp : 1;
+		$page = isset($_GET['paging']) && is_numeric($tmp = $_GET['paging']) && $tmp > 0 ? (int)$tmp : 1;
 		$limit = 10;
 
 		global $wpdb;
@@ -245,33 +246,37 @@ class ArchiveInstagramUserEndpoints {
 
 	// instagramからデータを取得
 	private function get_instagram($param, $url = null, $n = 0){
-		// unset($param['min_id']);
+		unset($param['min_id']);
 		
-		if(!isset($param['user'])){
+		if(!isset($param['access_token'])){
 			return array();
 		}
 
 		$data = http_build_query(array_intersect_key(
 			array_merge($param, array('count' => INSTAGRAM_USER_ENDPOINTS_API_COUNT)),
-			array_flip(array('count', 'client_id', 'min_id'))
+			array_flip(array('count', 'client_id', 'access_token', 'min_id'))
 		), '', '&');
 
-		$response = wp_remote_get(isset($url) ? $url : sprintf(INSTAGRAM_USER_ENDPOINTS_API_URI, $param['user']) . '?' . $data);
+		$url = isset($url) ? $url : INSTAGRAM_USER_ENDPOINTS_API_URI . '?' . $data;
+		$response = wp_remote_get($url);
 		$json = json_decode($response['body']);
 		
-		$minId = null;
+		$minId = isset($param['min_id']) ? $param['min_id'] : null;
 		$insertDatas = array();
 		if(isset($json->data)){
-			foreach($json->data as $data){
+			foreach($json->data as $i => $data){
+				if($data->id === $minId){
+					break;
+				}
 				$insertDatas[] = array(
 					'ai_id' => null,
-					'instagram_id' => (int)($data->caption->id),
+					'instagram_id' => $data->id,
 					'instagram_link' => $data->link,
 					'instagram_username' => $data->user->username,
 					'instagram_profile_picture' => $data->user->profile_picture,
-					'instagram_text' => substr(preg_replace_callback('/[^\x{0}-\x{FFFF}]/u', function($m) {
+					'instagram_text' => preg_replace_callback('/[^\x{0}-\x{FFFF}]/u', function($m) {
 						return sprintf("&#x%X;", ((ord($m[0][0]) & 0x7) << 18) | ((ord($m[0][1]) & 0x3F) << 12) | ((ord($m[0][2]) & 0x3F) << 6) | (ord($m[0][3]) & 0x3F));
-					}, $data->caption->text), 0, 511),
+					}, $data->caption->text),
 					'instagram_image' => $data->images->standard_resolution->url,
 					'instagram_created_time' => $data->caption->created_time
 				);
