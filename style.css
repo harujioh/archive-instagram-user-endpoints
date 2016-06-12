@@ -1,3 +1,15 @@
+#archive-instagram-param table input {
+	width: 35em;
+}
+
+#archive-instagram-param table input.full-text {
+	width: 100%;
+}
+
+#archive-instagram-param table input + button {
+	margin: 0 0 0 10px;
+}
+
 #archive-instagram .paging {
 	text-align: center;
 }
