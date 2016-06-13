@@ -3,7 +3,7 @@
 Plugin Name: Archive Instagram User Endpoints
 Description: Instagramの投稿をユーザ別に取得してDBに格納するプラグイン
 Author: harujioh
-Version: 2.0.0
+Version: 2.0.1
 */
 
 define('INSTAGRAM_USER_ENDPOINTS_API_URI'			, 'https://api.instagram.com/v1/users/self/media/recent');
@@ -26,7 +26,7 @@ class ArchiveInstagramUserEndpoints {
 		$this->menuName		= 'Instagram by User';
 		$this->pageTitle	= '"Archive Instagram User Endpoints" Settings';
 		$this->pageName		= 'instagram-by-user';
-		$this->version 		= '2.0.0';
+		$this->version 		= '2.0.1';
 
 		$name = 'archive_instagram_user_endpoints';
 		$this->tableName	= $wpdb->prefix . $name;
@@ -246,7 +246,7 @@ class ArchiveInstagramUserEndpoints {
 
 	// instagramからデータを取得
 	private function get_instagram($param, $url = null, $n = 0){
-		unset($param['min_id']);
+		// unset($param['min_id']);
 		
 		if(!isset($param['access_token'])){
 			return array();
@@ -261,11 +261,11 @@ class ArchiveInstagramUserEndpoints {
 		$response = wp_remote_get($url);
 		$json = json_decode($response['body']);
 		
-		$minId = isset($param['min_id']) ? $param['min_id'] : null;
+		$minId = null;
 		$insertDatas = array();
 		if(isset($json->data)){
 			foreach($json->data as $i => $data){
-				if($data->id === $minId){
+				if(isset($param['min_id']) && $data->id === $param['min_id']){
 					break;
 				}
 				$insertDatas[] = array(
